@@ -107,7 +107,7 @@ function Scene({children,buttons,onWake,skin}: {skin:Skin;children:ReactNode;but
     </>}{<><Lightformer form="rect" intensity={5} position={[-4,1,3]} scale={[1,6,1]} rotation={[0,.8,0]}/><Lightformer form="rect" intensity={4} position={[1,5,2]} scale={[5,1,1]} rotation={[.6,0,0]}/><Lightformer color={skin.id==='01'?'#ff8fbf':'#ffffff'} form="rect" intensity={3} position={[3,-1,-3]} scale={[2,5,1]} rotation={[0,2.5,0]}/></>}<Lightformer form="rect" intensity={3} position={[-3,4,5]} scale={[3,6,1]} rotation={[0,.4,0]}/><Lightformer form="rect" intensity={2} position={[4,0,3]} scale={[1,5,1]} rotation={[0,-.7,0]}/><Lightformer form="ring" intensity={1} position={[0,4,-2]} scale={4}/></Environment>
     <group ref={group} position={[0,-.05,0]}>
       <Shell skin={skin}/><ShellExtras skin={skin}/><SkinDetails skin={skin}/>
-      <Html transform distanceFactor={4} scale={.8} center position={[0,.22,.485]} style={{width:256,height:256}}>{children}</Html>
+      <Html transform distanceFactor={4} scale={.77} center position={[0,.22,.462]} style={{width:256,height:256,borderRadius:18,overflow:'hidden',clipPath:'inset(0 round 18px)'}}>{children}</Html>
       {buttons.map((p,index)=><DeviceButton skin={skin} key={index} {...p} index={index} onWake={onWake}/>)}
     </group>
     <ContactShadows position={[0,-2.31,0]} opacity={.3} scale={9} blur={2.8} far={4} resolution={256} color="#716053" frames={1}/>
