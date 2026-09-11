@@ -1,3 +1,6 @@
+import {SkinDetails,useSkinTexture} from './SkinDetails';
+import {BubblegumBody} from './BubblegumBody';
+import type {Skin} from './Customization';
 import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Html, Lightformer, RoundedBox } from '@react-three/drei';
@@ -38,7 +41,10 @@ function ShellInternals() {
     {[-1,1].flatMap(sign=>[0,1,2,3].map(i=><mesh key={`${sign}-${i}`} position={[sign*(.23+i*.12),-1.12,.15]}><boxGeometry args={[.055,.026,.015]}/><meshStandardMaterial color="#c4ac80" metalness={.55} roughness={.4}/></mesh>))}
   </group>;
 }
-function Shell() {
+function Shell({skin}: {skin:Skin}) {
+ const texture=useSkinTexture(skin.id);
+ const transparent=skin.material==='Jelly'||skin.material==='Glass';
+ const material={color:skin.color,roughness:skin.material==='Matte'||skin.material==='Ceramic'?.8:skin.material==='Metal'?.08:.23,metalness:skin.material==='Metal'?1:0,transmission:transparent?.72:0,thickness:.18,clearcoat:1,iridescence:skin.material==='Pearl'||skin.id==='12'?1:0,iridescenceIOR:1.8,iridescenceThicknessRange:[100,650] as [number,number],envMapIntensity:skin.material==='Metal'||skin.material==='Pearl'?1.8:1, map:skin.id==='07'?texture:null,bumpMap:skin.id==='04'||skin.id==='08'?texture:null,bumpScale:skin.id==='04'?.055:.025,roughnessMap:skin.id==='04'||skin.id==='08'?texture:null};
   const [front,back,rim] = useMemo(() => {
     const f=eggShape(); f.holes.push(screenHole());
     const outline=eggShape(.972).getPoints(120).map(p=>new THREE.Vector3(p.x,p.y,.45));
@@ -46,15 +52,15 @@ function Shell() {
   },[]);
   useEffect(()=>()=>{front.dispose();back.dispose();rim.dispose()},[front,back,rim]);
   return <>
-    <mesh geometry={back} position={[0,0,-.27]}><meshPhysicalMaterial color="#dda6b8" transmission={.28} thickness={.14} roughness={.29} ior={1.43} clearcoat={1}/></mesh>
-    <mesh geometry={front} position={[0,0,.12]}><meshPhysicalMaterial color="#f5c4d0" transmission={.78} thickness={.18} attenuationColor="#dfa0b5" attenuationDistance={1.6} roughness={.21} ior={1.43} clearcoat={1} clearcoatRoughness={.18} envMapIntensity={1.05}/></mesh>
-    <ShellInternals/>
-    <mesh geometry={rim} position={[0,0,-.32]} scale={[.925,.925,1]}><meshStandardMaterial color="#c58d9f" roughness={.36}/></mesh>
-    <mesh geometry={rim}><meshPhysicalMaterial color="#ffd0d9" roughness={.22} transparent opacity={.67} clearcoat={1}/></mesh>
-    <mesh geometry={rim} position={[0,0,-.33]} scale={[1.025,1.025,1]}><meshStandardMaterial color="#b86780" roughness={.4}/></mesh>
-    <RoundedBox args={[2.41,2.41,.10]} radius={.21} smoothness={5} position={[0,.22,.33]}><meshPhysicalMaterial color="#e8b4bd" roughness={.3} metalness={.25}/></RoundedBox>
+    <mesh geometry={back} position={[0,0,-.43]}><meshPhysicalMaterial {...material} transmission={transparent?.45:0} roughness={transparent?.14:material.roughness}/></mesh>
+    <BubblegumBody skin={skin}/>
+    {transparent&&<ShellInternals/>}
+    <mesh geometry={rim} position={[0,0,-.32]} scale={[.925,.925,1]}><meshStandardMaterial color={skin.color} roughness={.36}/></mesh>
+    
+    <mesh geometry={rim} position={[0,0,-.33]} scale={[1.025,1.025,1]}><meshStandardMaterial color={skin.color} roughness={.4}/></mesh>
+    <RoundedBox args={[2.41,2.41,.10]} radius={.21} smoothness={5} position={[0,.22,.33]}><meshPhysicalMaterial color={skin.color} roughness={.3} metalness={.25}/></RoundedBox>
     <RoundedBox args={[2.25,2.25,.10]} radius={.13} smoothness={5} position={[0,.22,.41]}><meshStandardMaterial color="#626957" roughness={.56}/></RoundedBox>
-    <RoundedBox args={[.36,.39,.3]} radius={.1} position={[0,2.05,.05]}><meshPhysicalMaterial color="#f0b7c8" roughness={.23} transmission={.55} thickness={.16} clearcoat={1}/></RoundedBox>
+    <RoundedBox args={[.36,.39,.3]} radius={.1} position={[0,2.05,.05]}><meshPhysicalMaterial color={skin.color} roughness={.23} transmission={.55} thickness={.16} clearcoat={1}/></RoundedBox>
     <mesh position={[0,2.14,.23]}><torusGeometry args={[.096,.035,12,32]}/><meshStandardMaterial color="#e5d9ca" roughness={.24} metalness={1}/></mesh>
     <group position={[0,2.39,.13]} rotation={[0,.30,-.10]}>
       <mesh scale={[.64,1,1]}><torusGeometry args={[.23,.042,12,40]}/><meshStandardMaterial color="#9b9b8e" roughness={.19} metalness={1}/></mesh>
@@ -63,17 +69,17 @@ function Shell() {
   </>;
 }
 
-type ButtonProps = { index: number; icon: string; label: string; onAction: ()=>void; onHold?: ()=>void; onWake: ()=>void };
-function DeviceButton({index,icon,label,onAction,onHold,onWake}: ButtonProps) {
+type ButtonProps = { skin:Skin; index: number; icon: string; label: string; onAction: ()=>void; onHold?: ()=>void; onWake: ()=>void };
+function DeviceButton({skin,index,icon,label,onAction,onHold,onWake}: ButtonProps) {
   const moving=useRef<THREE.Group>(null); const pressed=useRef(false); const hover=useRef(false); const timer=useRef<ReturnType<typeof setTimeout>>(); const consumed=useRef(false);
   const x=(index-1)*.67, y=index===1?-1.59:-1.43;
   useEffect(()=>()=>clearTimeout(timer.current),[]);
   useFrame((_,delta)=>{if(moving.current){moving.current.position.z=THREE.MathUtils.damp(moving.current.position.z,pressed.current?-.064:hover.current?.014:0,pressed.current?28:16,delta);const s=pressed.current?.95:1;moving.current.scale.setScalar(THREE.MathUtils.damp(moving.current.scale.x,s,20,delta));}});
   function cancel(){clearTimeout(timer.current);pressed.current=false;consumed.current=true;}
-  return <group position={[x,y,.49]}>
-    <mesh><torusGeometry args={[.196,.03,16,48]}/><meshStandardMaterial color="#94546b" metalness={.2} roughness={.32}/></mesh>
+  return <group position={[x,y,.63]}>
+    {!skin.buttons&&<mesh><torusGeometry args={[.196,.03,16,48]}/><meshStandardMaterial color={skin.id==='01'?'#ded6d4':skin.color} metalness={skin.id==='01'?.95:.2} roughness={.18}/></mesh>}
     <group ref={moving}>
-      <mesh position={[0,0,.018]} scale={[1,1,.48]}><sphereGeometry args={[.177,32,24]}/><meshPhysicalMaterial color="#efb1c0" roughness={.28} metalness={.13} clearcoat={1}/></mesh>
+      <ButtonCap skin={skin}/>
       <Html transform distanceFactor={4} position={[0,0,.115]} center style={{pointerEvents:'auto'}}>
         <button className="physical-button" aria-label={label} title={label}
           onPointerEnter={()=>hover.current=true} onPointerLeave={()=>hover.current=false}
@@ -85,22 +91,58 @@ function DeviceButton({index,icon,label,onAction,onHold,onWake}: ButtonProps) {
     </group>
   </group>;
 }
-function Scene({children,buttons,onWake}: {children:ReactNode;buttons:Omit<ButtonProps,'index'|'onWake'>[];onWake:()=>void}) {
+function Scene({children,buttons,onWake,skin}: {skin:Skin;children:ReactNode;buttons:Omit<ButtonProps,'index'|'onWake'|'skin'>[];onWake:()=>void}) {
   const group=useRef<THREE.Group>(null);const target=useRef({x:0,y:0}); const {camera,size}=useThree();
   useEffect(()=>{const c=camera as THREE.OrthographicCamera;c.zoom=Math.min(size.height/6.35,size.width/4.4,150);c.updateProjectionMatrix()},[camera,size]);
   useEffect(()=>{if(!matchMedia('(pointer: fine)').matches)return;const move=(e:PointerEvent)=>{target.current={x:(e.clientX/innerWidth-.5)*2,y:(e.clientY/innerHeight-.5)*2}};const reset=()=>{target.current={x:0,y:0}};window.addEventListener('pointermove',move);document.addEventListener('pointerleave',reset);window.addEventListener('blur',reset);return()=>{window.removeEventListener('pointermove',move);document.removeEventListener('pointerleave',reset);window.removeEventListener('blur',reset)}},[]);
   useFrame((_,dt)=>{if(!group.current)return;const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;group.current.scale.setScalar(1+(reduce?0:audioEngine.metrics.bass*.003));group.current.position.x=THREE.MathUtils.damp(group.current.position.x,reduce?0:target.current.x*DEVICE_CONFIG.hoverOffset,5,dt);group.current.position.y=THREE.MathUtils.damp(group.current.position.y,-.05+(reduce?0:-target.current.y*DEVICE_CONFIG.hoverOffset*.7),5,dt);group.current.rotation.x=THREE.MathUtils.damp(group.current.rotation.x,reduce?0:target.current.y*DEVICE_CONFIG.tiltX*Math.PI/180,5,dt);group.current.rotation.y=THREE.MathUtils.damp(group.current.rotation.y,reduce?0:target.current.x*DEVICE_CONFIG.tiltY*Math.PI/180,5,dt)});
   return <>
-    <ambientLight intensity={.9}/><directionalLight position={[-3,5,7]} intensity={3.2} color="#fff5ec"/><directionalLight position={[4,1,4]} intensity={1.4} color="#dfe8ff"/>
-    <Environment resolution={128}><Lightformer form="rect" intensity={3} position={[-3,4,5]} scale={[3,6,1]} rotation={[0,.4,0]}/><Lightformer form="rect" intensity={2} position={[4,0,3]} scale={[1,5,1]} rotation={[0,-.7,0]}/><Lightformer form="ring" intensity={1} position={[0,4,-2]} scale={4}/></Environment>
+    <ambientLight intensity={.28}/><directionalLight position={[-3,5,7]} intensity={1.5} color="#fff5ec"/><directionalLight position={[4,1,4]} intensity={.6} color="#dfe8ff"/>
+    <Environment resolution={256}>{skin.material==='Metal'&&<>
+      <Lightformer form="rect" color="#f3f1ec" intensity={1.6} position={[0,0,6]} scale={[12,12,1]}/>
+      <Lightformer form="rect" intensity={4} position={[-4,0,3]} rotation={[0,.8,0]} scale={[2,8,1]}/>
+      <Lightformer form="rect" intensity={2.5} position={[4,2,1]} rotation={[0,-1.1,0]} scale={[3,7,1]}/>
+      <Lightformer form="rect" color="#d4d7dc" intensity={1.3} position={[0,-4,2]} rotation={[-.9,0,0]} scale={[8,4,1]}/>
+      <Lightformer form="rect" intensity={1.5} position={[0,2,-5]} rotation={[0,Math.PI,0]} scale={[10,10,1]}/>
+    </>}{<><Lightformer form="rect" intensity={5} position={[-4,1,3]} scale={[1,6,1]} rotation={[0,.8,0]}/><Lightformer form="rect" intensity={4} position={[1,5,2]} scale={[5,1,1]} rotation={[.6,0,0]}/><Lightformer color={skin.id==='01'?'#ff8fbf':'#ffffff'} form="rect" intensity={3} position={[3,-1,-3]} scale={[2,5,1]} rotation={[0,2.5,0]}/></>}<Lightformer form="rect" intensity={3} position={[-3,4,5]} scale={[3,6,1]} rotation={[0,.4,0]}/><Lightformer form="rect" intensity={2} position={[4,0,3]} scale={[1,5,1]} rotation={[0,-.7,0]}/><Lightformer form="ring" intensity={1} position={[0,4,-2]} scale={4}/></Environment>
     <group ref={group} position={[0,-.05,0]}>
-      <Shell/>
+      <Shell skin={skin}/><ShellExtras skin={skin}/><SkinDetails skin={skin}/>
       <Html transform distanceFactor={4} scale={.8} center position={[0,.22,.485]} style={{width:256,height:256}}>{children}</Html>
-      {buttons.map((p,index)=><DeviceButton key={index} {...p} index={index} onWake={onWake}/>)}
+      {buttons.map((p,index)=><DeviceButton skin={skin} key={index} {...p} index={index} onWake={onWake}/>)}
     </group>
     <ContactShadows position={[0,-2.31,0]} opacity={.3} scale={9} blur={2.8} far={4} resolution={256} color="#716053" frames={1}/>
   </>;
 }
 export function TamagotchiDevice(props:Parameters<typeof Scene>[0]) {
   return <div className="device-stage"><Canvas orthographic camera={{position:[0,0,9],zoom:100,near:.1,far:40}} dpr={[1,1.75]} gl={{antialias:true,alpha:true}}><Suspense fallback={null}><Scene {...props}/></Suspense></Canvas></div>;
+}
+
+function ButtonCap({skin}:{skin:Skin}){
+ const geometry=useMemo(()=>{
+  const shape=new THREE.Shape();
+  if(skin.buttons==='heart'){
+   shape.moveTo(0,-.19);shape.bezierCurveTo(-.32,.02,-.20,.27,0,.12);shape.bezierCurveTo(.20,.27,.32,.02,0,-.19);
+  }else if(skin.buttons==='flower'){
+   for(let i=0;i<=120;i++){const a=i/120*Math.PI*2,r=.17+.04*Math.cos(a*5);if(i===0)shape.moveTo(Math.cos(a)*r,Math.sin(a)*r);else shape.lineTo(Math.cos(a)*r,Math.sin(a)*r)}
+  }else return null;
+  return new THREE.ExtrudeGeometry(shape,{depth:.055,bevelEnabled:true,bevelSize:.025,bevelThickness:.025,bevelSegments:3,steps:1});
+ },[skin.buttons]);
+ useEffect(()=>()=>geometry?.dispose(),[geometry]);
+ const mat=<meshPhysicalMaterial color={skin.button} roughness={.16} clearcoat={1} clearcoatRoughness={.08}/>;
+ if(skin.buttons==='flower')return <group position={[0,0,.04]}>{Array.from({length:5},(_,i)=>{const a=i*Math.PI*2/5+Math.PI/2;return <mesh key={i} position={[Math.cos(a)*.112,Math.sin(a)*.112,0]} scale={[1,1,.8]}><sphereGeometry args={[.105,24,16]}/>{mat}</mesh>})}<mesh position={[0,0,.055]} scale={[1,1,.65]}><sphereGeometry args={[.077,24,16]}/><meshPhysicalMaterial color="#f3dfad" roughness={.28} clearcoat={.8}/></mesh></group>;
+ if(geometry)return <mesh geometry={geometry} position={[0,0,.015]}>{mat}</mesh>;
+ if(skin.buttons==='square'||skin.buttons==='pill')return <RoundedBox args={[skin.buttons==='pill'?.43:.33,.32,.12]} radius={skin.buttons==='pill'?.12:.055} position={[0,0,.025]}>{mat}</RoundedBox>;
+ return <mesh position={[0,0,.018]} scale={[1,1,.48]}><sphereGeometry args={[.177,32,24]}/>{mat}</mesh>;
+}
+function ShellExtras({skin}:{skin:Skin}){
+ const horn=useMemo(()=>{
+  const shape=new THREE.Shape();shape.moveTo(-.22,0);shape.bezierCurveTo(-.30,.26,-.13,.62,.05,.73);shape.bezierCurveTo(-.02,.39,.06,.25,.23,.14);shape.quadraticCurveTo(.22,-.08,-.22,0);
+  return new THREE.ExtrudeGeometry(shape,{depth:.18,bevelEnabled:true,bevelSize:.065,bevelThickness:.06,bevelSegments:4,curveSegments:20});
+ },[]);
+ useEffect(()=>()=>horn.dispose(),[horn]);
+ return <>
+ {skin.shape==='horns'&&[-1,1].map(sign=><mesh key={sign} geometry={horn} position={[sign*1.02,1.62,.16]} scale={[sign===1?-1:1,1,1]}><meshPhysicalMaterial color={skin.color} roughness={.4} clearcoat={.5}/></mesh>)}
+ {skin.shape==='ears'&&[-1,1].map(sign=><group key={sign} position={[sign*.98,1.78,.1]} rotation={[0,0,-sign*.3]}><mesh scale={[.9,1,.65]}><coneGeometry args={[.43,.85,3,1]}/><meshPhysicalMaterial color={skin.color} roughness={.25} clearcoat={1}/></mesh></group>)}
+
+ </>;
 }
